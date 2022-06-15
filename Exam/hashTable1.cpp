@@ -53,6 +53,14 @@ public:
         }
         if ( it == nullptr ) return false;
         return true;
+        
+        /*
+        TItem * it = m_FirstOrder;
+        while ( it != nullptr ) {
+            if ( it->m_key == key ) return true; 
+        } 
+        return false;
+        */
     }
 
     // Both not tested
