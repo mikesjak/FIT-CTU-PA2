@@ -7,8 +7,10 @@ using namespace std;
 class CTree{
 public:
     CTree() = default;
-    CTree(const CTree & src) = delete;
-    CTree & operator = (const CTree & src) = delete;
+    CTree(const CTree & src) {
+        m_Root = nullptr;
+        copyTree(src.m_Root);
+    }
     ~CTree(){
         auto it = m_First;
         auto tmp = it;
@@ -19,25 +21,90 @@ public:
             delete tmp;
         }
     }
-    bool remove(const string & key);
-    bool isSet(const string & key);
-    bool insert(const string & key, const string & val);
+    bool remove( const string & key );
+    bool isSet( const string & key );
+    bool insert( const string & key, const string & val );
+    CTree& invertTree ();
+    CTree & operator = ( const CTree & src );
+    bool operator == ( const CTree & rhs );
+    bool operator != ( const CTree & rhs );
     friend ostream & operator << (ostream & os, const CTree & src);
 protected:
     class CNode{
     public:
         CNode(const string & key, const string & val)
-        :m_Key(key), m_Val(val) {}
+                :m_Key(key), m_Val(val) {}
         string m_Key, m_Val;
         CNode * m_L = nullptr, * m_R = nullptr;
         CNode * m_NextOrder = nullptr;
         CNode * m_PrevOrder = nullptr;
+
+        bool operator== ( const CNode& rhs ) const;
+    };
+
+    class treeIterator {
+    public:
+        treeIterator() = default;
+        explicit treeIterator( CNode * ptr ) : m_Ptr(ptr) {};
+        ~treeIterator() = default;
+
+        CNode operator*() const;
+        CNode * operator->();
+        treeIterator& operator++();
+        treeIterator operator++( int );
+        bool operator== ( const treeIterator& rhs ) const;
+        bool operator!= ( const treeIterator& rhs ) const;
+    private:
+        CNode * m_Ptr;
     };
     CNode * m_Root = nullptr;
     CNode * m_First = nullptr, * m_Last = nullptr;
     friend int main();
+
+    bool cmpTree( CNode * lhs, CNode * rhs );
+    void copyTree( CNode * src );
+    void invertNodes( CNode * node );
 };
 
+//================================================================================
+// Node
+bool CTree::CNode::operator== ( const CNode& rhs ) const{
+    if ( m_Key != rhs.m_Key ) return false;
+    if ( m_Val != rhs.m_Val ) return false;
+    return true;
+}
+
+//================================================================================
+// Iterator
+CTree::CNode CTree::treeIterator::operator*() const {
+    return *m_Ptr;
+}
+
+CTree::CNode * CTree::treeIterator::operator->() {
+    return m_Ptr;
+}
+
+CTree::treeIterator& CTree::treeIterator::operator++() {
+    m_Ptr = (*m_Ptr).m_NextOrder;
+    return *this;
+}
+
+CTree::treeIterator CTree::treeIterator::operator++(int) {
+    treeIterator tmp = (*this);
+    ++(*this);
+    return tmp;
+}
+
+bool CTree::treeIterator::operator== ( const treeIterator& rhs ) const {
+    return ( this->m_Ptr == rhs.m_Ptr );
+}
+
+bool CTree::treeIterator::operator!= ( const treeIterator& rhs ) const {
+    return ( this->m_Ptr != rhs.m_Ptr );
+}
+
+//================================================================================
+// Tree
 bool CTree::remove(const string & key) {
 
     CNode ** it = &m_Root;
@@ -147,6 +214,46 @@ bool CTree::insert(const string & key, const string & val) {
     return false;
 }
 
+CTree& CTree::invertTree () {
+    invertNodes( m_Root );
+    return *this;
+}
+
+void CTree::invertNodes( CNode * node ) {
+    if ( node == nullptr )
+        return;
+
+    auto tmp = node->m_L;
+    node->m_L = node ->m_R;
+    node->m_R = tmp;
+
+    if ( node->m_L )
+        invertNodes(node->m_L);
+    if ( node->m_R )
+        invertNodes(node->m_R);
+}
+
+bool CTree::cmpTree( CNode * lhs, CNode * rhs ) {
+
+    if ( lhs == nullptr && rhs == nullptr ) return true;
+    else if ( lhs != nullptr && rhs != nullptr ) {
+        if ( lhs->m_Key == rhs->m_Key && lhs->m_Val == rhs->m_Val
+             && cmpTree(lhs->m_L, rhs->m_L)
+             && cmpTree(lhs->m_R, rhs->m_R) )
+            return true;
+        return false;
+    }
+    return false;
+}
+
+void CTree::copyTree(CTree::CNode *src) {
+    CNode ** it = &m_First;
+    while ( *it != nullptr ) {
+        insert( (*it)->m_Key, (*it)->m_Val );
+        *it = (*it)->m_NextOrder;
+    }
+}
+
 ostream & operator << (ostream & os, const CTree & src) {
 
     int count = 0;
@@ -166,7 +273,24 @@ ostream & operator << (ostream & os, const CTree & src) {
     return os;
 }
 
-int main(void){
+CTree & CTree::operator = ( const CTree & src ) {
+    if ( *this == src ) return *this;
+
+    m_Root = nullptr;
+    copyTree( src.m_Root );
+    return *this;
+}
+
+bool CTree::operator == ( const CTree & rhs ) {
+    return cmpTree( m_Root, rhs.m_Root );
+}
+
+bool CTree::operator != ( const CTree & rhs ) {
+    return !cmpTree(m_Root, rhs.m_Root);
+}
+
+
+int main(){
     CTree t;
     stringstream ss;
     ss << t;
@@ -184,7 +308,6 @@ int main(void){
     assert(ss.str() == "{PA1 => done, PA2 => fail, UOS => funny}");
     ss.clear();
     ss.str("");
-
 
     assert(t.m_Root->m_L== nullptr);
     assert(t.m_Last->m_Key == "UOS");
@@ -225,7 +348,6 @@ int main(void){
 
     //======================================================
 
-
     assert (t.insert("AAG", "Pepa"));
     assert (t.insert("AG1", "Josef"));
     assert (t.insert("ZDM", "bomba"));
@@ -239,3 +361,4 @@ int main(void){
 
     return 0;
 }
+
