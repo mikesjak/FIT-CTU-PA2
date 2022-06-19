@@ -2,6 +2,7 @@
 #include<string>
 #include<cassert>
 #include<sstream>
+#include<stack>
 using namespace std;
 
 class CTree{
@@ -25,9 +26,11 @@ public:
     bool isSet( const string & key );
     bool insert( const string & key, const string & val );
     CTree& invertTree ();
+    size_t size();
     CTree & operator = ( const CTree & src );
     bool operator == ( const CTree & rhs );
     bool operator != ( const CTree & rhs );
+    void print();
     friend ostream & operator << (ostream & os, const CTree & src);
 protected:
     class CNode{
@@ -40,6 +43,7 @@ protected:
         CNode * m_PrevOrder = nullptr;
 
         bool operator== ( const CNode& rhs ) const;
+        bool operator!= ( const CNode& rhs ) const;
     };
 
     class treeIterator {
@@ -51,9 +55,62 @@ protected:
         CNode operator*() const;
         CNode * operator->();
         treeIterator& operator++();
+        treeIterator& operator--();
         treeIterator operator++( int );
+        treeIterator operator--( int );
         bool operator== ( const treeIterator& rhs ) const;
         bool operator!= ( const treeIterator& rhs ) const;
+    private:
+        CNode * m_Ptr;
+    };
+    class inIt {
+    public:
+        inIt() = default;
+        inIt( CNode * ptr ) : m_Ptr(ptr) {
+            moveLeft(ptr);
+            m_Ptr = s.top();
+            s.pop();
+        };
+        ~inIt() = default;
+        CNode operator*() const {
+            return *m_Ptr;
+        }
+        CNode * operator->() {
+            return m_Ptr;
+        }
+        inIt& operator++() {
+
+            m_Ptr = s.top();
+            s.pop();
+
+            if ( m_Ptr->m_R != nullptr ) {
+                moveLeft(m_Ptr->m_R);
+            }
+
+            return *this;
+        }
+    private:
+        void moveLeft( CNode * node ) {
+            while (node != nullptr) {
+                s.push(node);
+                node = node->m_L;
+            }
+        }
+
+        bool hasNext() {
+            return !s.empty();
+        }
+
+        CNode * m_Ptr;
+        stack<CNode*> s;
+    };
+    class preIt {
+    public:
+    private:
+        CNode * m_Ptr;
+    };
+    class postIt {
+    public:
     private:
         CNode * m_Ptr;
     };
@@ -61,21 +118,34 @@ protected:
     CNode * m_First = nullptr, * m_Last = nullptr;
     friend int main();
 
+    size_t m_Size = 0;
+
     bool cmpTree( CNode * lhs, CNode * rhs );
     void copyTree( CNode * src );
     void invertNodes( CNode * node );
+    void printIn( CNode * node );
+    void printPost( CNode * node );
+    void printPre( CNode * node );
+
+    treeIterator end();
+    treeIterator begin();
+    inIt inEnd();
+    inIt inBegin();
 };
 
 //================================================================================
 // Node
-bool CTree::CNode::operator== ( const CNode& rhs ) const{
+bool CTree::CNode::operator== ( const CNode& rhs ) const {
     if ( m_Key != rhs.m_Key ) return false;
     if ( m_Val != rhs.m_Val ) return false;
     return true;
 }
 
+bool CTree::CNode::operator!= ( const CNode& rhs ) const {
+    return ! ( *this == rhs );
+}
 //================================================================================
-// Iterator
+// Iterator - LL
 CTree::CNode CTree::treeIterator::operator*() const {
     return *m_Ptr;
 }
@@ -85,7 +155,15 @@ CTree::CNode * CTree::treeIterator::operator->() {
 }
 
 CTree::treeIterator& CTree::treeIterator::operator++() {
-    m_Ptr = (*m_Ptr).m_NextOrder;
+    if ( m_Ptr->m_NextOrder )
+        m_Ptr = (*m_Ptr).m_NextOrder;
+    else
+        throw invalid_argument("Entering mordor");
+    return *this;
+}
+
+CTree::treeIterator& CTree::treeIterator::operator--() {
+    m_Ptr = (*m_Ptr).m_PrevOrder;
     return *this;
 }
 
@@ -95,12 +173,40 @@ CTree::treeIterator CTree::treeIterator::operator++(int) {
     return tmp;
 }
 
+CTree::treeIterator CTree::treeIterator::operator--(int) {
+    treeIterator tmp = (*this);
+    --(*this);
+    return tmp;
+}
+
 bool CTree::treeIterator::operator== ( const treeIterator& rhs ) const {
     return ( this->m_Ptr == rhs.m_Ptr );
 }
 
 bool CTree::treeIterator::operator!= ( const treeIterator& rhs ) const {
     return ( this->m_Ptr != rhs.m_Ptr );
+}
+
+CTree::treeIterator CTree::end() {
+    return treeIterator(m_Last);
+}
+
+CTree::treeIterator CTree::begin() {
+    return treeIterator(m_First);
+}
+
+//================================================================================
+// Iterator - inorder
+
+CTree::inIt CTree::inEnd() {
+    auto it = m_Root;
+    while ( it->m_R )
+        it = it->m_R;
+    return inIt(it);
+}
+
+CTree::inIt CTree::inBegin() {
+    return inIt(m_Root);
 }
 
 //================================================================================
@@ -113,12 +219,10 @@ bool CTree::remove(const string & key) {
         CNode * nodeToDel = *it;
         if ( nodeToDel->m_Key == key ) {
 
-            //if ( nodeToDel == m_First )
-            //    m_First = m_First->m_NextOrder;
-            if ( nodeToDel == m_Last )
+            if ( nodeToDel == m_Last ) {
                 m_Last = m_Last->m_PrevOrder;
-            if ( nodeToDel == m_First )
-                m_Last = m_First->m_NextOrder;
+                m_Last->m_NextOrder = nullptr;
+            }
 
             if ( nodeToDel->m_L != nullptr && nodeToDel->m_R != nullptr ) {
                 it = &(*it)->m_R;
@@ -132,21 +236,28 @@ bool CTree::remove(const string & key) {
                 if ( (*it)->m_NextOrder && (*it)->m_NextOrder != nodeToDel )
                     nodeToDel->m_NextOrder = (*it)->m_NextOrder;
                 nodeToDel = *it;
+
             }
             else {
                 if ((*it)->m_PrevOrder)
                     (*it)->m_PrevOrder->m_NextOrder = (*it)->m_NextOrder;
                 if ((*it)->m_NextOrder)
-                    (*it)->m_NextOrder->m_PrevOrder = (*it)->m_NextOrder;
+                    (*it)->m_NextOrder->m_PrevOrder = (*it)->m_PrevOrder;
             }
             if ( nodeToDel->m_L != nullptr )
                 *it = nodeToDel->m_L;
             else
                 *it = nodeToDel->m_R;
 
+            if ( nodeToDel->m_NextOrder )
+                nodeToDel->m_NextOrder->m_PrevOrder = nodeToDel->m_PrevOrder;
+            if ( nodeToDel->m_PrevOrder)
+                nodeToDel->m_PrevOrder->m_NextOrder = nodeToDel->m_NextOrder;
+
             nodeToDel->m_NextOrder = nodeToDel->m_PrevOrder = nullptr;
             nodeToDel->m_L = nodeToDel->m_R = nullptr;
             delete nodeToDel;
+            m_Size--;
             return true;
         }
 
@@ -177,6 +288,7 @@ bool CTree::insert(const string & key, const string & val) {
 
     if ( m_Root == nullptr ) {
         m_Root = m_First = m_Last = nodeToInsert;
+        m_Size++;
         return true;
     }
 
@@ -192,6 +304,7 @@ bool CTree::insert(const string & key, const string & val) {
                 m_Last->m_NextOrder = nodeToInsert;
                 nodeToInsert->m_PrevOrder = m_Last;
                 m_Last = nodeToInsert;
+                m_Size++;
                 return true;
             }
             it = it->m_L;
@@ -203,6 +316,7 @@ bool CTree::insert(const string & key, const string & val) {
                 m_Last->m_NextOrder = nodeToInsert;
                 nodeToInsert->m_PrevOrder = m_Last;
                 m_Last = nodeToInsert;
+                m_Size++;
                 return true;
             }
             it = it->m_R;
@@ -217,6 +331,10 @@ bool CTree::insert(const string & key, const string & val) {
 CTree& CTree::invertTree () {
     invertNodes( m_Root );
     return *this;
+}
+
+size_t CTree::size() {
+    return m_Size;
 }
 
 void CTree::invertNodes( CNode * node ) {
@@ -247,11 +365,46 @@ bool CTree::cmpTree( CNode * lhs, CNode * rhs ) {
 }
 
 void CTree::copyTree(CTree::CNode *src) {
-    CNode ** it = &m_First;
+    CNode ** it = &src;
     while ( *it != nullptr ) {
         insert( (*it)->m_Key, (*it)->m_Val );
         *it = (*it)->m_NextOrder;
     }
+}
+
+void CTree::print() {
+    cout << "\n================================================================" << endl;
+    cout << "\nIn order: ";
+    printIn(m_Root);
+    cout << "\nPre order: ";
+    printPre(m_Root);
+    cout << "\nPost order: ";
+    printPost(m_Root);
+    cout << "\n================================================================" << endl;
+}
+
+void CTree::printIn( CNode * node ) {
+    if ( node == nullptr ) return;
+
+     printIn(node->m_L);
+     cout << node->m_Key << " => ";
+     printIn(node->m_R);
+}
+
+void CTree::printPost( CNode * node ) {
+    if ( node == nullptr ) return;
+
+    printPost(node->m_L);
+    printPost(node->m_R);
+    cout << node->m_Key << " => ";
+}
+
+void CTree::printPre( CNode * node ) {
+    if ( node == nullptr ) return;
+
+    cout << node->m_Key << " => ";
+    printPre(node->m_L);
+    printPre(node->m_R);
 }
 
 ostream & operator << (ostream & os, const CTree & src) {
@@ -331,34 +484,100 @@ int main(){
     assert(ss.str() == "{PA1 => done, PA2 => fail, UOS => funny, CAO => lul, LIN => F}");
     ss.clear();
     ss.str("");
+    assert(t.size() == 5);
 
     assert(t.insert("SAP", "shit"));
     assert(t.m_Root->m_R->m_R->m_L->m_Key == "SAP");
     assert(t.m_Last == t.m_Root->m_R->m_R->m_L);
-
+    assert(t.size() == 6);
 
     ss << t;
     assert(ss.str() == "{PA1 => done, PA2 => fail, UOS => funny, CAO => lul, LIN => F, SAP => shit}");
     ss.clear();
     ss.str("");
 
+
     assert(!t.isSet("PA3"));
     assert(t.isSet("LIN"));
     assert(t.isSet("SAP"));
 
+    t.print();
+
     //======================================================
+    // Inverting
+
+    CTree a, b;
+    a = t;
+    b = a;
+    assert ( a == t );
+    assert ( b == a );
+    a.invertTree();
+    b.invertTree();
+    assert ( a != t );
+    assert ( b == a );
+    a.invertTree();
+    assert ( a == t );
+
+    //======================================================
+    // Removing
 
     assert (t.insert("AAG", "Pepa"));
     assert (t.insert("AG1", "Josef"));
-    assert (t.insert("ZDM", "bomba"));
-    assert (t.insert("ZMA", "pecka"));
+    assert (t.insert("ZDM", "bomb"));
+    assert (t.insert("ZMA", "banana"));
+    assert (t.m_Last->m_Key == "ZMA" );
+    assert(t.size() == 10);
+
+    ss << t;
+    assert(ss.str() == "{PA1 => done, PA2 => fail, UOS => funny, CAO => lul, LIN => F, SAP => shit, AAG => Pepa, AG1 => Josef, ZDM => bomb, ZMA => banana}");
+    ss.clear();
+    ss.str("");
 
     assert (t.remove("PA1"));
+    assert (t.m_Last->m_Key == "ZMA" );
     assert (t.remove("ZDM"));
+    assert (t.m_Last->m_Key == "ZMA" );
     assert (t.remove("AAG"));
+    assert (t.m_Last->m_Key == "ZMA" );
     assert (!t.remove("AAG"));
     assert("PA2" == t.m_First->m_Key);
+    assert(t.size() == 7);
+
+    ss << t;
+    assert(ss.str() == "{PA2 => fail, UOS => funny, CAO => lul, LIN => F, SAP => shit, AG1 => Josef, ZMA => banana}");
+    ss.clear();
+    ss.str("");
+
+    //======================================================
+    // Iterator - LL
+
+    auto it = t.begin();
+    assert ( *it == *t.m_First );
+    ++it;
+    assert ( *it == *t.m_First->m_NextOrder );
+    it++;
+    assert ( *it == *t.m_First->m_NextOrder->m_NextOrder );
+    assert ( (*it++) == *t.m_First->m_NextOrder->m_NextOrder );
+
+    while ( (*it).m_NextOrder )
+        it++;
+    assert ( it == t.end() );
+    auto end = t.end();
+    assert ( *end == *t.m_Last );
+    assert ( *(--end) == *t.m_Last->m_PrevOrder );
+    while ( end != t.begin() )
+        --end;
+    assert( end == t.begin() );
+
+    //======================================================
+    // Iterator - inorder
+    t.print();
+    auto inorder = t.inBegin();
+    while ( *inorder != *(t.inEnd()) ) {
+        cout << inorder->m_Key << ", ";
+        ++inorder;
+    }
+    cout << inorder->m_Key;
 
     return 0;
 }
-
