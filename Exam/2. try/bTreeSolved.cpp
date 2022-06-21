@@ -45,9 +45,6 @@ protected:
         CNode * m_L = nullptr, * m_R = nullptr;
         CNode * m_NextOrder = nullptr;
         CNode * m_PrevOrder = nullptr;
-
-        bool operator== ( const CNode& rhs ) const;
-        bool operator!= ( const CNode& rhs ) const;
     };
 
     CNode * m_Root = nullptr;
@@ -56,167 +53,145 @@ protected:
 
     size_t m_Size = 0;
 
+    // helping functions
+    // comparing function ==, !=
     bool cmpTree( CNode * lhs, CNode * rhs );
+    // copying function - copy constructor, =
     void copyTree( CNode * src );
+    // recursive destructing of tree
     void delTree( CNode * node);
+    // recursive inverting
     void invertNodes( CNode * node );
+    // prints tree in orter L->root->R
     void printInorder( CNode * node );
 };
-//=========================================================================
-// CNode
-
-// todo - DONE
-// Compares just key and value not pointers
-bool CTree::CNode::operator== ( const CNode& rhs ) const {
-    if ( m_Key != rhs.m_Key ) return false;
-    if ( m_Val != rhs.m_Val ) return false;
-    return true;
-}
-
-// todo - DONE
-bool CTree::CNode::operator!= ( const CNode& rhs ) const {
-    return !( *this == rhs );
-}
 
 //=========================================================================
 // CTree
 
 // todo
 bool CTree::remove( const string & key ) {
-    //set iterator
+    //declare iterator
 
-    CNode ** it = &m_Root;
+    CNode **it = &m_Root;
 
-    while( *it != nullptr ) {
-        CNode * nodeToDel = *it;
-        if ( nodeToDel->m_Key == key ) {
-            if ( nodeToDel == m_Last ) {
-                m_Last->m_PrevOrder->m_NextOrder = nullptr;
-                m_Last = m_Last->m_PrevOrder;
-            }
-            if ( nodeToDel == m_First ) {
-                m_First->m_NextOrder->m_PrevOrder = nullptr;
-                m_First = m_First->m_NextOrder;
-            }
-            if ( nodeToDel->m_L != nullptr && nodeToDel->m_R != nullptr ) { //has two children
+    while (*it) {
+        if ((*it)->m_Key == key) {
+            CNode *nodeToDel = *it;
+
+            if (nodeToDel->m_L && nodeToDel->m_R) {
                 it = &(*it)->m_R;
-                while ( (*it)->m_L != nullptr )
+                while ((*it)->m_L)
                     it = &(*it)->m_L;
+
+                if (nodeToDel == m_First) {
+                    if (nodeToDel->m_NextOrder != *it)
+                        m_First = m_First->m_NextOrder;
+                    m_First->m_PrevOrder = nullptr;
+                }
+
+                if (nodeToDel == m_Last) {
+                    if (nodeToDel->m_PrevOrder != *it)
+                        m_Last = m_Last->m_PrevOrder;
+                    m_Last->m_PrevOrder = nullptr;
+                }
+
                 nodeToDel->m_Key = (*it)->m_Key;
                 nodeToDel->m_Val = (*it)->m_Val;
+                nodeToDel->m_NextOrder = (*it)->m_NextOrder;
+                nodeToDel->m_PrevOrder = (*it)->m_PrevOrder;
+
+                if (nodeToDel->m_NextOrder)
+                    nodeToDel->m_NextOrder->m_PrevOrder = nodeToDel->m_PrevOrder;
+                if (nodeToDel->m_PrevOrder)
+                    nodeToDel->m_PrevOrder->m_NextOrder = nodeToDel->m_NextOrder;
+
+                if ( nodeToDel == m_First )
+                    nodeToDel->m_PrevOrder = nullptr;
+                if ( nodeToDel == m_Last )
+                    nodeToDel->m_NextOrder = nullptr;
 
                 nodeToDel = *it;
+            } else {
+                if (nodeToDel->m_NextOrder)
+                    nodeToDel->m_NextOrder->m_PrevOrder = nodeToDel->m_PrevOrder;
+                if (nodeToDel->m_PrevOrder)
+                    nodeToDel->m_PrevOrder->m_NextOrder = nodeToDel->m_NextOrder;
             }
-            if ( nodeToDel->m_PrevOrder != nullptr ) {
-                nodeToDel->m_PrevOrder->m_NextOrder = nodeToDel->m_NextOrder;
-            }
-            if ( nodeToDel->m_NextOrder != nullptr )
-                nodeToDel->m_NextOrder->m_PrevOrder = nodeToDel->m_PrevOrder;
 
-            if ( (*it)->m_L != nullptr )
-                (*it) = (*it)->m_L;
+            if (nodeToDel->m_L)
+                *it = nodeToDel->m_L;
             else
-                (*it) = (*it)->m_R;
+                *it = nodeToDel->m_R;
 
-            nodeToDel->m_NextOrder = nodeToDel->m_PrevOrder = nullptr;
             nodeToDel->m_L = nodeToDel->m_R = nullptr;
+            nodeToDel->m_NextOrder = nodeToDel->m_PrevOrder = nullptr;
             delete nodeToDel;
             m_Size--;
             return true;
-        }
-        if ( (*it)->m_Key > key )
-            it = &nodeToDel->m_L;
+        } else if ((*it)->m_Key > key)
+            it = &(*it)->m_L;
         else
-            it = &nodeToDel->m_R;
+            it = &(*it)->m_R;
     }
     return false;
-
-    /*finding node to delete {
-        - declare CNode * nodeToDel
-        - found
-            - if m_Last
-            - if has both children
-                - go one right
-                - go left as far as i can
-                - change data
-                - modify LL
-                - set nodeToDel to iterator
-
-            -modify LL
-
-            - move it L
-                - if no L move R
-            - modify LL
-
-            - set pointers in NTD to nullptr
-            - del NTD
-    }
-     */
-    //  move it
-    // ret false
 }
 
 // todo - DONE
 bool CTree::isSet( const string & key ) {
     auto it = m_Root;
-
     while ( it != nullptr ) {
-        if ( key > it->m_Key ) {
-            it = it->m_R;
-        }
-        else if ( key < it->m_Key ) {
+        if ( it->m_Key == key ) return true;
+        else if ( it->m_Key > key )
             it = it->m_L;
-        }
-        else {
-            return true;
-        }
+        else
+            it = it->m_R;
     }
     return false;
 }
 
 // todo - DONE
 bool CTree::insert( const string & key, const string & val ) {
-
     CNode * nodeToAdd = new CNode(key, val);
 
     if ( m_Root == nullptr ) {
-        m_First = nodeToAdd;
-        m_Last = nodeToAdd;
         m_Root = nodeToAdd;
+        m_Last = m_First = nodeToAdd;
         m_Size++;
         return true;
     }
 
     auto it = m_Root;
     while ( it != nullptr ) {
-        if ( key > it->m_Key ) {
+        if ( it->m_Key == key ) return false;
+        else if ( it->m_Key > key ) {
+           if ( it->m_L == nullptr ) {
+               it->m_L = nodeToAdd;
+               nodeToAdd->m_PrevOrder = m_Last;
+               m_Last->m_NextOrder = nodeToAdd;
+               m_Last = nodeToAdd;
+               m_Size++;
+               return true;
+           }
+           it = it->m_L;
+           continue;
+        }
+        else {
             if ( it->m_R == nullptr ) {
-                m_Last->m_NextOrder = nodeToAdd;
-                nodeToAdd->m_PrevOrder = m_Last;
-                m_Last = nodeToAdd;
                 it->m_R = nodeToAdd;
+                nodeToAdd->m_PrevOrder = m_Last;
+                m_Last->m_NextOrder = nodeToAdd;
+                m_Last = nodeToAdd;
                 m_Size++;
                 return true;
             }
             it = it->m_R;
-        }
-        else if ( key < it->m_Key ) {
-            if ( it->m_L == nullptr ) {
-                m_Last->m_NextOrder = nodeToAdd;
-                nodeToAdd->m_PrevOrder = m_Last;
-                m_Last = nodeToAdd;
-                it->m_L = nodeToAdd;
-                m_Size++;
-                return true;
-            }
-            it = it->m_L;
-        }
-        else {
-            break;
+            continue;
         }
     }
     delete nodeToAdd;
     return false;
+
 }
 
 // todo - DONE
@@ -226,16 +201,25 @@ CTree& CTree::invert () {
 }
 
 // todo - DONE
+void CTree::invertNodes( CNode * node ) {
+    if ( node == nullptr ) return;
+    auto tmp = node->m_L;
+    node->m_L = node->m_R;
+    node->m_R = tmp;
+
+    invertNodes(node->m_L);
+    invertNodes(node->m_R);
+}
+
+// todo - DONE
 size_t CTree::size() {
     return m_Size;
 }
 
 // todo - DONE
 CTree & CTree::operator = ( const CTree & src ) {
-    if ( this == &src )
-        return *this;
-
-    m_Root = nullptr;
+    if ( this == &src ) return *this;
+    delTree(m_Root);
     copyTree(src.m_First);
     return *this;
 }
@@ -247,19 +231,18 @@ bool CTree::operator == ( const CTree & rhs ) {
 
 // todo - DONE
 bool CTree::operator != ( const CTree & rhs ) {
-    return !cmpTree(m_Root, rhs.m_Root);
+ return !(*this == rhs);
 }
 
 // todo - DONE
 void CTree::print() {
+    cout << endl;
     printInorder(m_Root);
-    cout << "\n";
 }
 
 // todo - DONE
 void CTree::printInorder( CNode * node ) {
     if ( node == nullptr ) return;
-
     printInorder(node->m_L);
     cout << "| " << node->m_Key << " => " << node->m_Val << " |";
     printInorder(node->m_R);
@@ -267,17 +250,16 @@ void CTree::printInorder( CNode * node ) {
 
 // todo - DONE
 ostream & operator << (ostream & os, const CTree & src) {
-    auto it = src.m_First;
     int count = 0;
+    auto it = src.m_First;
 
     os << "{";
-    while ( it != nullptr ) {
+    while ( it ) {
         if ( count )
             os << ", ";
         os << it->m_Key << " => " << it->m_Val;
-
-        it = it->m_NextOrder;
         count++;
+        it = it->m_NextOrder;
     }
     os << "}";
     return os;
@@ -285,22 +267,19 @@ ostream & operator << (ostream & os, const CTree & src) {
 
 // todo - DONE
 bool CTree::cmpTree( CNode * lhs, CNode * rhs ) {
-    if ( lhs == nullptr && rhs == nullptr )
+    if ( !lhs && !rhs ) return true;
+    if ( lhs->m_Key != rhs->m_Key ) return false;
+    if ( lhs->m_Val != rhs->m_Val ) return false;
+    if (cmpTree(lhs->m_L, rhs->m_L)
+     && cmpTree(lhs->m_R, rhs->m_R) )
         return true;
-    if ( lhs != nullptr && rhs != nullptr ) {
-        if ( lhs->m_Key == rhs->m_Key && lhs->m_Val== rhs->m_Val
-          && cmpTree( lhs->m_R, rhs->m_R )
-          && cmpTree( lhs->m_L, rhs->m_L ) )
-            return true;
-        return false;
-    }
     return false;
 }
 
 // todo - DONE
 void CTree::copyTree( CNode * src ) {
     auto it = src;
-    while ( it != nullptr ) {
+    while ( it ) {
         insert(it->m_Key, it->m_Val);
         it = it->m_NextOrder;
     }
@@ -308,24 +287,12 @@ void CTree::copyTree( CNode * src ) {
 
 // todo - DONE
 void CTree::delTree( CNode * node) {
-    if ( node == nullptr )
-        return;
+    if ( node == nullptr ) return;
 
     delTree(node->m_L);
     delTree(node->m_R);
+
     delete node;
-}
-
-// todo - DONE
-void CTree::invertNodes( CNode * node ) {
-    if ( node == nullptr ) return;
-
-    auto tmp = node->m_L;
-    node->m_L = node->m_R;
-    node->m_R = tmp;
-
-    invertNodes(node->m_L);
-    invertNodes(node->m_R);
 }
 
 int main() {
@@ -380,7 +347,6 @@ int main() {
     assert(ss.str() == "{PA1 => done, PA2 => fail, UOS => funny, CAO => lul, LIN => F, SAP => shit}");
     ss.clear();
     ss.str("");
-
 
     assert(!t.isSet("PA3"));
     assert(t.isSet("LIN"));
