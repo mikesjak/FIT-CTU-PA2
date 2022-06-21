@@ -27,80 +27,84 @@ public:
     // map key is the customer name, value is a list of nodes on the shortest path (depot -> customer)
     // if there is no path, the value is an empty list
     map<string, list<string>> serveCustomers ( const set<string> & customers, const set<string> & depots ) const;
-    pair<string, list<string>> findShortestPath( const string customer, const set<string> & depots ) const;
+
 private:
     // todo
-    map <string, set<string>> depos;
+    list<string> findRoute(const string& customer, const set<string> & depots) const;
 
+    map < string, set<string>> stops;
 };
 
 CDelivery & CDelivery::addConn ( const string & from, const string & to )
 {
-    depos[from].insert(to);
+    stops[from].insert(to);
     return *this;
 }
 
 map<string, list<string>> CDelivery::serveCustomers ( const set<string> & customers, const set<string> & depots ) const
 {
-    map < string, list<string>> result;
+    // todo
+    map<string, list<string>> result;
 
     for ( const auto& customer : customers ) {
-        auto tmp = findShortestPath(customer, depots);
-        result.emplace(customer, tmp.second);
+        list<string> res = findRoute(customer, depots);
+        result.emplace(customer, res);
     }
     return result;
 }
 
-pair<string, list<string>> CDelivery::findShortestPath( const string customer, const set<string> & depots ) const {
+list<string> CDelivery::findRoute(const string& customer, const set<string> & depots ) const {
+    list<string> path;
+    int least = INT32_MAX;
 
-    string nearest;
-    int lowest = INT32_MAX;
-    list<string> currentPath;
+    auto it = stops.find(customer);
+    if ( it == stops.end() ) return path = {{customer}};
 
-    for ( const auto& depot : depots ) {
-        queue< pair<string, int> > q;
+    for ( const auto & depo : depots ) {
         map <string, string> to_from;
-        q.emplace(depot, 0);
-        to_from.emplace(depot, "");
+        queue<pair<string, int>> q;
+
+        q.emplace(depo, 0);
+        to_from.emplace(depo, "");
 
         while ( !q.empty() ) {
+
             string curr = q.front().first;
-            int dist = q.front().second;
+            int currDist = q.front().second;
             q.pop();
 
-            if ( dist > lowest )
+            if ( currDist > least )
                 break;
 
             if ( curr == customer ) {
-                list<string> road;
+                list<string> currPath;
 
-                auto it = to_from.find(curr)->second;
-                while ( it != "" ) {
-                    road.push_front(it);
-                    it = to_from[it];
+                currPath.push_front(customer);
+
+                auto it3 = to_from.find(curr)->second;
+                while ( it3 != "" ) {
+                    currPath.push_front(it3);
+                    it3 = to_from[it3];
                 }
-                road.push_back(customer);
-                if ( dist < lowest ) {
-                    lowest = dist;
-                    currentPath = road;
-                    nearest = curr;
+                if ( currDist < least ) {
+                    least = currDist;
+                    path = currPath;
                 }
                 break;
             }
-            auto it = depos.find(curr);
-            if ( it == depos.end() ) break;
-            for ( const auto& c : it->second ) {
-                auto tmp = to_from.find(c);
-                if ( tmp != to_from.end() )
-                    continue;
-                else {
-                    q.emplace(c, dist +1 );
+
+            auto it2 = stops.find(curr);
+            if ( it2 == stops.end() )
+                break;
+            for ( const auto& c : it2->second ) {
+                if ( to_from.find(c) == to_from.end() ) {
                     to_from.emplace(c, curr);
+                    q.emplace(c, currDist+1);
                 }
             }
         }
     }
-    return make_pair(nearest, currentPath);
+    return path;
 }
 
 int main ()
